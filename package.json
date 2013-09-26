@@ -1,0 +1,28 @@
+{
+  "name": "npm-binary-top",
+  "version": "0.0.0",
+  "description": "Lists the top binary packages by npm stars and github stars",
+  "main": "index.js",
+  "scripts": {
+    "test": "vows test/*-test.js --spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:indexzero/npm-binary-top.git"
+  },
+  "keywords": [
+    "npm",
+    "star",
+    "binary"
+  ],
+  "author": "Charlie Robbins <charlie@nodejitsu.com>",
+  "license": "MIT",
+  "dependencies": {
+    "npm-registry-client": "~0.2.28",
+    "async": "~0.2.9",
+    "optimist": "~0.6.0",
+    "github": "~0.1.10",
+    "request": "~2.27.0",
+    "github-url-from-git": "~1.1.1"
+  }
+}
