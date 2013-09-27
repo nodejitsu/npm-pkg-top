@@ -8,7 +8,7 @@ npm-pkg-top [top] [options]
 
 Options:
   --type, -t      Type of packages to list top               [default: "binary"]
-  --sortBy, -b    Key to sort packages by [npm, dep, git]    [default: "dep"]
+  --sort-by, -b   Key to sort packages by [npm, dep, git]    [default: "dep"]
   --skip          Skips adding properties [git, dep]       
   --username, -u  Optional Github username to use          
   --password, -p  Optional Github password to use          

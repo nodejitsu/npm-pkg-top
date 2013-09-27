@@ -14,9 +14,9 @@ var optimist = require('optimist')
       default: 'binary',
       string: true
     },
-    sortBy: {
+    'sort-by': {
       description: 'Key to sort packages by [npm, dep, git]',
-      alias: 'b',
+      alias: 'sortBy',
       default: 'dep',
       string: true
     },
