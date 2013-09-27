@@ -1,6 +1,6 @@
 {
   "name": "npm-pkg-top",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Lists the top packages by npm stars, github stars, and depended upon",
   "main": "index.js",
   "scripts": {
