@@ -1,98 +1,120 @@
 /*
- * index.js: Top-level include for npm-binary-top.
+ * index.js: Top-level include for npm-pkg-top.
  *
  * (C) 2012 Nodejitsu Inc.
  *
  */
 
-var path = require('path'),
+var fs = require('fs'),
+    path = require('path'),
     async = require('async'),
     GitHubApi = require('github'),
     githubUrl = require('github-url-from-git'),
-    NpmClient = require('npm-registry-client'),
+    ProgressBar = require('progress'),
     request = require('request');
 
+//
+// The urls for the type of queries we are doing.
+//
+var urls = {
+  binary: 'http://isaacs.ic.ht/registry/_design/app/_view/needBuild',
+  all:    'http://isaacs.ic.ht/registry/_all_docs'
+};
+
+//
+// ### function pkgTop (options, callback)
+// Returns the top packages by npm stars, github stars, and depended upon.
+// e.g.
+// 
+//     [
+//       { npm: 0, git: 10, dep: 5, name: 'some-pkg' },
+//       (...)
+//     ]
+//
 module.exports = function (options, callback) {
-  var github,
-      npm;
-  
   //
-  // Create a github client.
+  // ### function log (level, msg)
+  // Logs the `msg` at the `level` provided.
   //
-  github = new GitHubApi({
-    // required
-    version: "3.0.0",
-    // optional
-    timeout: 5000
-  });
-  
-  //
-  // Create an npm client.
-  //
-  npm = new NpmClient({
-    registry: 'http://registry.npmjs.org',
-    'fetch-retries': 3,
-    cache: path.join(process.env.HOME, '.npm'),
-    log: null
-  });
-  
-  if (options.username && options.password) {
-    github.authenticate({
-      type: 'basic',
-      username: options.username,
-      password: options.password
-    });
+  function log(level, msg) {
+    if (!options.logger) { return }
+    options.logger[level](msg);
   }
   
   //
-  // ### function getStars(pkg, next)
-  // Gets the npm and github stars for the
-  // specified `pkg`.
+  // ### function parseNpm (body)
+  // Parses the reponse from the first npm view query.
   //
-  function getStars(pkg, next) {
-    var stars = { name: pkg };
-    
-    //
-    // Skip npm stars if requested
-    //
-    if (options['skip-npm-stars']) {
+  function parseNpm (body) {
+    return body.rows.map(function (row) {
+      var pkg   = row.doc,
+          url   = pkg.repository && pkg.repository.url,
+          users = pkg.users;
+
+      return {
+        name:      pkg.name,
+        githubUrl: (url && githubUrl(url))              || null,
+        npm:       (users && Object.keys(users).length) || 0
+      };
+    });
+  }
+
+  //
+  // ### function saveQuery(json, next)
+  // Saves the JSON query to `options['save-query']
+  //
+  function saveQuery(json, next) {
+    log('info', 'Saving query to: ' + options['save-query']);
+    fs.writeFile(options['save-query'], JSON.stringify(json, null, 2), 'utf8', function (err) {
+      if (err) { log('error', 'Error saving query: ' + err.message) }
+      next(null, parseNpm(json));
+    });
+  }
+
+  //
+  // ### function loadQuery(next)
+  // Loads the JSON query to `options['load-query']
+  //
+  function loadQuery(next) {
+    log('info', 'Loading query from: ' + options['load-query']);
+    fs.readFile(options['load-query'], 'utf8', function (err, data) {
+      if (err) {
+        log('error', 'Failed to load ' + options['load-query'] + ': ' + err.message);
+        return next(err);
+      }
+
+      try { data = JSON.parse(data) }
+      catch (ex) { return next(ex) }
+      next(null, parseNpm(data));
+    });
+  }
+
+
+  //
+  // ### function getGithubStars(github, stars, next)
+  // Gets the npm and github stars for the
+  // specified `stars` info.
+  //
+  function getGithubStars(github, stars, next) {
+    if (!stars.githubUrl) {
+      stars.git = -1;
       return next(null, stars);
     }
+
+    var parts = stars.githubUrl
+      .split('/')
+      .slice(-2);
     
-    npm.request('GET', pkg, function (err, json) {
-      if (err) { return next(null, null) }
-      
-      stars.npm = json.users
-        ? Object.keys(json.users).length
+    github.repos.get({
+      user: parts[0],
+      repo: parts[1]
+    }, function (err, repo) {
+      stars.git = repo && repo.watchers
+        ? repo.watchers
         : 0;
-      
-      if (!json.repository || !json.repository.url
-          || options['skip-github']) {
-        stars.github = -1;
-        return next(null, stars);
-      }
-      
-      var url = githubUrl(json.repository.url),
-          parts;
-          
-      if (!url) {
-        stars.github = -1;
-        return next(null, stars);
-      }
 
-      parts = url.split('/')
-        .slice(-2);
-      
-      github.repos.get({
-        user: parts[0],
-        repo: parts[1]
-      }, function (err, repo) {
-        stars.github = repo && repo.watchers
-          ? repo.watchers
-          : 0;
-
-        next(null, stars);
-      })
+      log('info', 'git: [' + [stars.git, stars.name, parts.join('/')].join(', ') + ']');
+      next(null, stars);
     });
   }
   
@@ -101,8 +123,7 @@ module.exports = function (options, callback) {
   // Counts all of the dependendents for the specified
   // stars object
   //
-  function getDependents (stars, next) {
-    console.log('getDependents', stars.name);
+  function getDependents(stars, next) {
     request({
       url: 'http://isaacs.ic.ht/registry/_design/app/_view/dependedUpon',
       json: true,
@@ -111,15 +132,31 @@ module.exports = function (options, callback) {
         endkey:   JSON.stringify([stars.name, 'zzzzz'])
       }
     }, function (err, res, body) {
-      console.dir(body);
-      if (err || !body || !body.rows || !body.rows.length) {
-        stars.dependent = 0;
-        return next();
-      }
-      
-      stars.dependent = body.rows[0].value;
+      stars.dep = !err && body && body.rows.length
+        ? body.rows[0].value
+        : 0;
+
+      log('info', 'dep [' + [stars.dep, stars.name].join(', ') + ']');
       next();
     });
+  }
+  
+  //
+  // ### function sortStars (key)
+  // Returns a function that sorts the stars
+  // object by the given key.
+  //
+  function sortStars(key) {
+    return function (lval, rval) {
+      //
+      // Get the value of the specified key
+      //
+      var lstar = lval[key],
+          rstar = rval[key];
+
+      if (lstar === rstar) { return 0 }
+      return lstar < rstar ? 1 : -1;
+    };
   }
   
   async.waterfall([
@@ -127,31 +164,95 @@ module.exports = function (options, callback) {
     // 1. Get all binary packages
     //
     function listBinary(next) {
-      request({
-        url: 'http://isaacs.ic.ht/registry/_design/app/_view/needBuild',
+      if (options['load-query']) {
+        return loadQuery(next);
+      }
+      
+      var req = request({
+        url: urls[options.type],
+        qs: { include_docs: true },
         json: true
       }, function (err, res, body) {
         if (err || !body || !body.rows || !body.rows.length) {
           return next(err || new Error('Bad data returned from npm registry.'));
         }
-        
-        next(null, body.rows.map(function (row) {
-          return row.id;
-        }));
+
+        return options['save-query']
+          ? saveQuery(body, next)
+          : next(null, parseNpm(body));
       });
+      
+      req.on('response', function (res) {
+        var bar = new ProgressBar('  Querying npm [:bar] :percent :etas', {
+          width: 20,
+          clear: true,
+          complete: '=', 
+          incomplete: ' ',
+          total: res.headers['content-length']
+            ? parseInt(res.headers['content-length'], 10)
+            : 43 * 1024 * 1024
+        });
+
+        res.on('end', function () {
+          bar.complete = true;
+          bar.terminate();
+          console.log();
+        });
+
+        res.on('data', function (chunk) {
+          bar.tick(chunk.length);
+        });        
+      });
+      
+      req.end();
     },
     //
     // 2. Get the github and npm stars for
     //    each of the binary packages
     //
-    function getAllStars(packages, next) {
-      async.mapLimit(packages, 10, getStars, next);
+    function getAllStars(allStars, next) {
+      if (~options.skip.indexOf('git')) {
+        return next(null, allStars.map(function (stars) {
+          stars.git = -1;
+          return stars;
+        }));
+      }
+      
+      //
+      // Create a github client.
+      //
+      var github = new GitHubApi({
+        // required
+        version: "3.0.0",
+        // optional
+        timeout: 5000
+      });
+
+      //
+      // Authenticate if credentials are provided
+      //
+      if (options.username && options.password) {
+        github.authenticate({
+          type: 'basic',
+          username: options.username,
+          password: options.password
+        });
+      }
+
+      async.mapLimit(allStars, 10, getGithubStars.bind(null, github), next);
     },
     //
     // 3. Get the npm dependents for
     //    each of the binary packages
     //
     function getAllDependents(allStars, next) {
+      if (~options.skip.indexOf('dep')) {
+        return next(null, allStars.map(function (stars) {
+          stars.dep = -1;
+          return stars;
+        }));
+      }
+
       async.forEachLimit(allStars, 10, getDependents, function (err) {
         return err ? next(err) : next(null, allStars);
       });
@@ -162,17 +263,7 @@ module.exports = function (options, callback) {
     function getTop(stars, next) {
       stars = stars
         .filter(Boolean)
-        .sort(function (lval, rval) {
-          //
-          // Just sort by Github stars. npm stars are basically
-          // useless since no on uses them.
-          //
-          var lstar = lval.dependent,
-              rstar = rval.dependent;
-
-          if (lstar === rstar) { return 0 }
-          return lstar < rstar ? 1 : -1;
-        });
+        .sort(sortStars(options.sortBy));
       
       next(null, stars);
     }

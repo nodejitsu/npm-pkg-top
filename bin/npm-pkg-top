@@ -1,34 +1,163 @@
 #!/usr/bin/env node
 
-var binaryTop = require('../index');
+var fs = require('fs'),
+    cliff = require('cliff'),
+    winston = require('winston').cli(),
+    pkgTop = require('../index');
 
-var argv = require('optimist')
+var optimist = require('optimist')
+  .usage('npm-pkg-top [top] [options]')
   .options({
+    type: {
+      description: 'Type of packages to list top',
+      alias: 't',
+      default: 'binary',
+      string: true
+    },
+    sortBy: {
+      description: 'Key to sort packages by [npm, dep, git]',
+      alias: 'b',
+      default: 'dep',
+      string: true
+    },
+    'skip': {
+      description: 'Skips adding properties [git, dep]',
+      string: true
+    },
     username: {
+      description: 'Optional Github username to use',
       alias: 'u',
       string: true
     },
     password: {
+      description: 'Optional Github password to use',
       alias: 'p',
       string: true
     },
-    'skip-github': {
-      alias: 'sg',
+    load: {
+      description: 'Loads existing output from --save to view',
+      alias: 'l',
+      string: true
+    },
+    save: {
+      description: 'Save JSON output to this file',
+      alias: 's',
+      string: true
+    },
+    'load-query': {
+      description: 'Loads existing raw npm query JSON',
+      string: true
+    },
+    'save-query': {
+      description: 'Save raw npm query JSON to this file',
+      string: true
+    },
+    silent: {
+      description: 'Suppress log output',
+      alias: 's',
       boolean: true
     },
-    'skip-npm-stars': {
-      alias: 'sg',
+    help: {
+      description: 'Displays this message',
+      alias: 'h',
       boolean: true
     }
-  }).argv;
+  });
 
+var argv = optimist.argv;
+if (argv.help) {
+  return optimist.showHelp();
+}
 
-binaryTop(argv, function (err, top) {
+if (argv.silent !== true) {
+  argv.logger = winston;
+}
+
+if (!Array.isArray(argv.skip)) {
+  argv.skip = [argv.skip].filter(Boolean);
+}
+
+var limit = typeof argv._[0] === 'number'
+  ? argv._[0]
+  : 20;
+
+//
+// ### function displayTop(top)
+// Formats and displays the top JSON
+//
+function displayTop(top) {
+  var rows = [
+    [
+      '#', 'npm',
+      !~argv.skip.indexOf('git') ? 'git' : null,
+      !~argv.skip.indexOf('dep') ? 'dep' : null,
+      'pkg'
+    ].filter(Boolean)
+  ].concat(
+    top.slice(0, limit)
+      .map(function (star, i) {
+        return [
+          i + 1,
+          star.npm,
+          !~argv.skip.indexOf('git') ? star.git : null,
+          !~argv.skip.indexOf('dep') ? star.dep : null,
+          star.name,
+        ].filter(function (item) { return item !== null })
+         .map(function (item) { return item !== -1 ? item : '-' });
+      })
+  );
+
+  cliff.putRows('data', rows, ['underline', 'green', 'green', 'yellow', 'magenta']);
+}
+
+if (argv.load) {
+  winston.info('Viewing ' + argv.load);
+  return fs.readFile(argv.load, 'utf8', function (err, data) {
+    if (err) {
+      return winston.error('Error reading ' + argv.load + ': ' + err.message);
+    }
+    
+    try { data = JSON.parse(data) }
+    catch (ex) {
+      return winston.error('Error reading JSON: ' + ex.message);
+    }
+    
+    displayTop(data);
+  });
+}
+
+//
+// Make sure we are sorting by a key that
+// is not skipped.
+//
+if (argv.skip.length === 2) {
+  argv.sortBy = 'npm'
+}
+else if (~argv.skip.indexOf('dep')) {
+  argv.sortBy = argv.sortBy !== 'dep'
+    ? argv.sortBy
+    : 'git';
+}
+else if (~argv.skip.indexOf('git')) {
+  argv.sortBy = argv.sortBy !== 'git'
+    ? argv.sortBy
+    : 'dep';
+}
+
+pkgTop(argv, function (err, top) {
   if (err) {
-    return console.dir(err);
+    return winston.error('Error getting top: ' + err.message);
   }
 
-  top.forEach(function (star, i) {
-     console.log(i, star.dependent, star.npm, star.name)
-   });
+  winston.info('Done getting binary stars');
+  if (argv.save) {
+    winston.info('Saving information to ' + argv.save);
+    fs.writeFile(argv.save, JSON.stringify(top, null, 2), 'utf8', function (err) {
+      return err
+        ? winston.error('Error writing to ' + argv.save + ': ' + err.message)
+        : winston.info('Stars saved to: ' + argv.save);
+    });
+  }
+  
+  displayTop(top);
 });

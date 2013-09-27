@@ -1,7 +1,7 @@
 {
-  "name": "npm-binary-top",
+  "name": "npm-pkg-top",
   "version": "0.0.0",
-  "description": "Lists the top binary packages by npm stars and github stars",
+  "description": "Lists the top packages by npm stars, github stars, and depended upon",
   "main": "index.js",
   "scripts": {
     "test": "vows test/*-test.js --spec"
@@ -13,16 +13,26 @@
   "keywords": [
     "npm",
     "star",
-    "binary"
+    "binary",
+    "stats"
   ],
-  "author": "Charlie Robbins <charlie@nodejitsu.com>",
+  "bin": {
+    "pkg-top": "./bin/npm-pkg-top",
+    "npm-pkg-top": "./bin/npm-pkg-top"
+  },
+  "author": "Nodejitsu Inc <info@nodejitsu.com>",
+  "contributors": [
+    "Charlie Robbins <charlie@nodejitsu.com>"
+  ],
   "license": "MIT",
   "dependencies": {
-    "npm-registry-client": "~0.2.28",
     "async": "~0.2.9",
-    "optimist": "~0.6.0",
+    "cliff": "~0.1.8",
     "github": "~0.1.10",
+    "github-url-from-git": "~1.1.1",
+    "optimist": "~0.6.0",
     "request": "~2.27.0",
-    "github-url-from-git": "~1.1.1"
+    "progress": "~1.1.0",
+    "winston": "~0.7.2"
   }
 }
