@@ -25,7 +25,7 @@ var urls = {
 // ### function pkgTop (options, callback)
 // Returns the top packages by npm stars, github stars, and depended upon.
 // e.g.
-// 
+//
 //     [
 //       { npm: 0, git: 10, dep: 5, name: 'some-pkg' },
 //       (...)
@@ -40,7 +40,7 @@ module.exports = function (options, callback) {
     if (!options.logger) { return }
     options.logger[level](msg);
   }
-  
+
   //
   // ### function parseNpm (body)
   // Parses the reponse from the first npm view query.
@@ -104,7 +104,7 @@ module.exports = function (options, callback) {
     var parts = stars.githubUrl
       .split('/')
       .slice(-2);
-    
+
     github.repos.get({
       user: parts[0],
       repo: parts[1]
@@ -117,7 +117,7 @@ module.exports = function (options, callback) {
       next(null, stars);
     });
   }
-  
+
   //
   // ### function getDependents (stars, next)
   // Counts all of the dependendents for the specified
@@ -140,7 +140,7 @@ module.exports = function (options, callback) {
       next();
     });
   }
-  
+
   //
   // ### function sortStars (key)
   // Returns a function that sorts the stars
@@ -158,7 +158,7 @@ module.exports = function (options, callback) {
       return lstar < rstar ? 1 : -1;
     };
   }
-  
+
   async.waterfall([
     //
     // 1. Get all binary packages
@@ -167,7 +167,7 @@ module.exports = function (options, callback) {
       if (options['load-query']) {
         return loadQuery(next);
       }
-      
+
       var req = request({
         url: urls[options.type],
         qs: { include_docs: true },
@@ -181,16 +181,16 @@ module.exports = function (options, callback) {
           ? saveQuery(body, next)
           : next(null, parseNpm(body));
       });
-      
+
       req.on('response', function (res) {
         var bar = new ProgressBar('  Querying npm [:bar] :percent :etas', {
           width: 20,
           clear: true,
-          complete: '=', 
+          complete: '=',
           incomplete: ' ',
           total: res.headers['content-length']
             ? parseInt(res.headers['content-length'], 10)
-            : 43 * 1024 * 1024
+            : 100 * 1024 * 1024
         });
 
         res.on('end', function () {
@@ -201,9 +201,9 @@ module.exports = function (options, callback) {
 
         res.on('data', function (chunk) {
           bar.tick(chunk.length);
-        });        
+        });
       });
-      
+
       req.end();
     },
     //
@@ -217,7 +217,7 @@ module.exports = function (options, callback) {
           return stars;
         }));
       }
-      
+
       //
       // Create a github client.
       //
@@ -264,7 +264,7 @@ module.exports = function (options, callback) {
       stars = stars
         .filter(Boolean)
         .sort(sortStars(options.sortBy));
-      
+
       next(null, stars);
     }
   ], callback);
