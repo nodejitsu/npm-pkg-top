@@ -1,7 +1,7 @@
 /*
  * index.js: Top-level include for npm-pkg-top.
  *
- * (C) 2012 Nodejitsu Inc.
+ * (C) 2013 Charlie Robbins.
  *
  */
 

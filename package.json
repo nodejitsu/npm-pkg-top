@@ -3,12 +3,9 @@
   "version": "1.0.0",
   "description": "Lists the top packages by npm stars, github stars, and depended upon",
   "main": "index.js",
-  "scripts": {
-    "test": "vows test/*-test.js --spec"
-  },
   "repository": {
     "type": "git",
-    "url": "git@github.com:indexzero/npm-binary-top.git"
+    "url": "git@github.com:indexzero/npm-pkg-top.git"
   },
   "keywords": [
     "npm",
@@ -20,19 +17,16 @@
     "pkg-top": "./bin/npm-pkg-top",
     "npm-pkg-top": "./bin/npm-pkg-top"
   },
-  "author": "Nodejitsu Inc <info@nodejitsu.com>",
-  "contributors": [
-    "Charlie Robbins <charlie@nodejitsu.com>"
-  ],
+  "author": "Charlie Robbins <charlie.robbins@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "async": "~0.2.9",
+    "async": "~0.9.0",
     "cliff": "~0.1.8",
-    "github": "~0.1.10",
-    "github-url-from-git": "~1.1.1",
+    "github": "~0.2.3",
+    "github-url-from-git": "~1.4.0",
     "optimist": "~0.6.0",
-    "request": "~2.27.0",
+    "request": "~2.49.0",
     "progress": "~1.1.0",
-    "winston": "~0.7.2"
+    "winston": "~0.8.3"
   }
 }
