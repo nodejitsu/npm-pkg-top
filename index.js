@@ -17,8 +17,8 @@ var fs = require('fs'),
 // The urls for the type of queries we are doing.
 //
 var urls = {
-  binary: 'http://isaacs.ic.ht/registry/_design/app/_view/needBuild',
-  all:    'http://isaacs.ic.ht/registry/_all_docs'
+  binary: 'https://skimdb.npmjs.com/registry/_design/app/_view/needBuild',
+  all:    'https://skimdb.npmjs.com/registry/_all_docs'
 };
 
 //
@@ -125,7 +125,7 @@ module.exports = function (options, callback) {
   //
   function getDependents(stars, next) {
     request({
-      url: 'http://isaacs.ic.ht/registry/_design/app/_view/dependedUpon',
+      url: 'https://skimdb.npmjs.com/registry/_design/app/_view/dependedUpon',
       json: true,
       qs: {
         startkey: JSON.stringify([stars.name]),
